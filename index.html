@@ -7,14 +7,19 @@
 <style>
   body {
     font-family: Arial, sans-serif;
-    background-color: white;
-    color: black;
     margin: 0; padding: 0;
     display: flex; flex-direction: column; align-items: center;
-  }
-  .dark-mode {
     background-color: #121212;
     color: white;
+  }
+  body.light-mode {
+    background-color: #f9f9f9;
+    color: black;
+  }
+  /* Texte noir dans les cellules en mode sombre */
+  body.dark-mode th,
+  body.dark-mode td {
+    color: black !important;
   }
   .controls {
     display: flex;
@@ -23,23 +28,57 @@
     margin: 10px;
     justify-content: center;
   }
-  .upload-zone, .trash-zone {
-    border: 2px dashed gray;
-    padding: 10px;
-    width: 200px;
-    min-height: 100px;
+  .top-zones {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 15px;
+    overflow-x: auto;
+  }
+  .zone-box {
+    border: 2px dashed gray;
+    background: #222;
+    padding: 6px;
+    border-radius: 6px;
+    min-height: 80px;
+    width: 180px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
     align-items: center;
     overflow-x: auto;
+    user-select: none;
+  }
+  body.light-mode .zone-box {
+    background: #fafafa;
+    border-color: #999;
+  }
+  .zone-box img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    cursor: grab;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    user-select: none;
+    transition: box-shadow 0.2s ease;
+    touch-action: none; /* help with touch dragging */
+  }
+  .zone-box img.dragging,
+  img.table-img.dragging {
+    opacity: 0.6;
+    cursor: grabbing;
+    box-shadow: 0 0 10px #fff;
   }
   .table-container {
     overflow-x: auto;
-    margin: 20px;
+    margin: 0 20px 30px;
     width: 100%;
-    max-width: 800px;
+    max-width: 900px;
+    flex-shrink: 0;
   }
   table {
     border-collapse: collapse;
@@ -55,13 +94,18 @@
     position: relative;
     overflow-x: auto;
     padding: 5px;
+    user-select: none;
   }
-  th {
-    background-color: #FFD700; /* default yellow for tiers */
-    cursor: default;
+  body.light-mode th, body.light-mode td {
+    border-color: #aaa;
   }
   th.class-header {
     background-color: #f0f0f0;
+    color: black;
+  }
+  body.dark-mode th.class-header {
+    background-color: #333;
+    color: white;
   }
   th.tier-header {
     cursor: default;
@@ -72,25 +116,62 @@
     right: 5px;
     font-size: 10px;
   }
-  img {
-    max-width: 90px;
-    max-height: 90px;
+  img.table-img {
+    max-width: 40px;
+    max-height: 40px;
     cursor: grab;
-    margin-right: 5px;
+    margin: 2px;
+    touch-action: none;
   }
   select.color-picker {
     position: absolute;
     bottom: 5px;
     left: 5px;
   }
+  /* floating ghost for mobile touch */
+  .touch-ghost {
+    position: fixed;
+    pointer-events: none;
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    z-index: 99999;
+    opacity: 0.9;
+    transform: translate(-50%, -50%);
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: rgba(0,0,0,0.2);
+  }
+  @media (max-width: 600px) {
+    th, td {
+      width: 80px;
+      height: 80px;
+      font-size: 12px;
+    }
+    img.table-img {
+      max-width: 30px;
+      max-height: 30px;
+    }
+    .controls {
+      flex-direction: column;
+      gap: 5px;
+    }
+    .zone-box {
+      width: 140px;
+      min-height: 70px;
+    }
+    .zone-box img {
+      width: 40px;
+      height: 40px;
+    }
+  }
 </style>
 </head>
-<body>
+<body class="dark-mode">
 
 <h1 id="title" contenteditable="true">Ma Tier List</h1>
 
-<div id="pub-zone" style="background:#f0f0f0; padding:5px; width:100%; text-align:center;">
-  <!-- Zone pour pub future -->
+<div id="pub-zone" style="background:#f0f0f0; padding:5px; width:100%; text-align:center; color:black;">
   Espace pub
 </div>
 
@@ -106,14 +187,14 @@
   <button id="musicBtn">Activer la musique</button>
 </div>
 
-<div style="display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-top: 10px;">
+<div class="top-zones">
   <div>
     <h3>Zone Upload</h3>
-    <div id="uploadZone" class="upload-zone"></div>
+    <div id="uploadZone" class="zone-box"></div>
   </div>
   <div>
     <h3>Poubelle</h3>
-    <div id="trashZone" class="trash-zone"></div>
+    <div id="trashZone" class="zone-box"></div>
   </div>
 </div>
 
@@ -128,33 +209,17 @@
     </thead>
     <tbody>
       <tr>
-        <th class="tier-header" contenteditable="true" style="background:#FFD700;">
+        <th class="tier-header" contenteditable="true" style="background:#FF0000; position: relative;">
           S
-          <select class="color-picker" title="Changer couleur tier">
-            <option value="#FFD700" selected>Jaune</option>
-            <option value="#C0C0C0">Argent</option>
-            <option value="#CD7F32">Bronze</option>
-            <option value="#FF6347">Tomate</option>
-            <option value="#87CEFA">Bleu clair</option>
-            <option value="#90EE90">Vert clair</option>
-            <option value="#D3D3D3">Gris clair</option>
-          </select>
+          <select class="color-picker" title="Changer couleur tier"></select>
         </th>
         <td></td>
         <td></td>
       </tr>
       <tr>
-        <th class="tier-header" contenteditable="true" style="background:#C0C0C0;">
+        <th class="tier-header" contenteditable="true" style="background:#0000FF; position: relative;">
           A
-          <select class="color-picker" title="Changer couleur tier">
-            <option value="#FFD700">Jaune</option>
-            <option value="#C0C0C0" selected>Argent</option>
-            <option value="#CD7F32">Bronze</option>
-            <option value="#FF6347">Tomate</option>
-            <option value="#87CEFA">Bleu clair</option>
-            <option value="#90EE90">Vert clair</option>
-            <option value="#D3D3D3">Gris clair</option>
-          </select>
+          <select class="color-picker" title="Changer couleur tier"></select>
         </th>
         <td></td>
         <td></td>
@@ -169,301 +234,640 @@
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
-  const uploadZone = document.getElementById("uploadZone");
-  const trashZone = document.getElementById("trashZone");
-  const table = document.getElementById("tierTable").getElementsByTagName("tbody")[0];
-  const fileUpload = document.getElementById("fileUpload");
-  const music = document.getElementById("background-music");
-  const musicBtn = document.getElementById("musicBtn");
+/* === VARIABLES DOM === */
+const uploadZone = document.getElementById("uploadZone");
+const trashZone = document.getElementById("trashZone");
+const tbody = document.getElementById("tierTable").getElementsByTagName("tbody")[0];
+const theadRow = document.querySelector("#tierTable thead tr");
+const fileUpload = document.getElementById("fileUpload");
+const music = document.getElementById("background-music");
+const musicBtn = document.getElementById("musicBtn");
+const body = document.body;
 
-  // Générer un ID unique pour chaque image
-  function generateID() {
-    return "id-" + Math.random().toString(36).substr(2, 9);
-  }
+/* === UTIL === */
+function generateID() {
+  return "id-" + Math.random().toString(36).substr(2, 9);
+}
 
-  // Ajout des images uploadées dans la zone upload
-  fileUpload.addEventListener("change", (e) => {
-    for (const file of e.target.files) {
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const img = document.createElement("img");
-        img.src = event.target.result;
-        img.draggable = true;
-        img.dataset.id = generateID();
-        img.addEventListener("dragstart", dragStart);
-        uploadZone.appendChild(img);
-      };
-      reader.readAsDataURL(file);
-    }
-    fileUpload.value = ""; // Reset input pour pouvoir uploader même fichier à nouveau
+/* === COLOR PICKER HELPERS === */
+function createColorOptions(select, defaultColor) {
+  const colors = [
+    { name: "Rouge", val: "#FF0000" },
+    { name: "Bleu", val: "#0000FF" },
+    { name: "Vert", val: "#008000" },
+    { name: "Jaune", val: "#FFFF00" },
+    { name: "Orange", val: "#FFA500" },
+    { name: "Violet", val: "#800080" },
+    { name: "Rose", val: "#FFC0CB" },
+    { name: "Cyan", val: "#00FFFF" }
+  ];
+  select.innerHTML = "";
+  colors.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.val;
+    opt.textContent = c.name;
+    if (c.val === defaultColor) opt.selected = true;
+    select.appendChild(opt);
   });
+  select.addEventListener("change", (e) => {
+    select.parentElement.style.backgroundColor = e.target.value;
+  });
+}
 
-  // Gestion du drag start
-  function dragStart(e) {
-    e.dataTransfer.setData("text/plain", e.target.src);
-    e.dataTransfer.setData("text/id", e.target.dataset.id);
-    e.dataTransfer.effectAllowed = "move";
-    e.target.classList.add("dragging");
+function initColorPickers() {
+  document.querySelectorAll("select.color-picker").forEach(select => {
+    if (select.options.length > 0) return;
+    const bgColor = window.getComputedStyle(select.parentElement).backgroundColor;
+    function rgbToHex(rgb) {
+      const result = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(rgb);
+      return result ? "#" + ((1 << 24) + (parseInt(result[1]) << 16) + (parseInt(result[2]) << 8) + parseInt(result[3])).toString(16).slice(1) : "#FF0000";
+    }
+    createColorOptions(select, rgbToHex(bgColor));
+  });
+}
+initColorPickers();
+
+/* === CREATE IMAGES ===
+   - On desktop we use the native drag/drop (existing handlers)
+   - For mobile touch we create a floating ghost and handle positioning & drop
+*/
+function createDraggableImage(src) {
+  const img = document.createElement("img");
+  img.src = src;
+  img.draggable = true;
+  img.dataset.id = generateID();
+  img.classList.add("table-img");
+  img.style.width = "40px";
+  img.style.height = "40px";
+  // Add desktop drag listeners (preserve current pc behavior)
+  img.addEventListener("dragstart", dragStart);
+  img.addEventListener("dragend", dragEnd);
+  // Add touch handlers for mobile
+  addTouchHandlers(img);
+  return img;
+}
+
+/* === FILE UPLOAD === */
+fileUpload.addEventListener("change", (e) => {
+  for (const file of e.target.files) {
+    if (!file.type.startsWith("image/")) continue;
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      const img = createDraggableImage(event.target.result);
+      uploadZone.appendChild(img);
+    };
+    reader.readAsDataURL(file);
   }
+  fileUpload.value = "";
+});
 
-  // Empêcher drop sur th (tiers & classes)
-  function dragOverDeny(e) {
+/* === DESKTOP DRAG (existing working behavior) === */
+let draggedItem = null;
+let dragSource = null; // "uploadZone" or "grid"
+
+function dragStart(e) {
+  draggedItem = e.target;
+  dragSource = (draggedItem.parentElement === uploadZone) ? "uploadZone" : "grid";
+  draggedItem.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  try { e.dataTransfer.setData("text/plain", draggedItem.dataset.id); } catch {}
+}
+function dragEnd(e) {
+  if (draggedItem) draggedItem.classList.remove("dragging");
+  draggedItem = null;
+  dragSource = null;
+}
+
+/* === DROPPABLE ZONES (desktop) === */
+/* Keep the exact behavior you had:
+   - uploadZone: reordering allowed if dragging from uploadZone
+   - trashZone: delete
+   - table cells: if from uploadZone -> clone, if from grid -> move and allow reordering in cell
+   - headers (th) should not accept drops
+*/
+function preventDropInHeaders(el) {
+  el.addEventListener("dragover", e => e.preventDefault());
+  el.addEventListener("drop", e => { e.preventDefault(); /* no-op */ });
+}
+document.querySelectorAll("#tierTable th").forEach(th => preventDropInHeaders(th));
+
+uploadZone.addEventListener("dragover", e => e.preventDefault());
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault();
+  if (!draggedItem) return;
+  if (dragSource === "uploadZone") {
+    // reorder within upload zone based on x position
+    const after = getDragAfterElement(uploadZone, e.clientX);
+    if (!after) uploadZone.appendChild(draggedItem);
+    else uploadZone.insertBefore(draggedItem, after);
+  } else {
+    // moving from grid back to upload zone: move element to upload zone end
+    uploadZone.appendChild(draggedItem);
+  }
+});
+
+trashZone.addEventListener("dragover", e => e.preventDefault());
+trashZone.addEventListener("drop", e => {
+  e.preventDefault();
+  if (draggedItem && draggedItem.parentElement) {
+    draggedItem.parentElement.removeChild(draggedItem);
+  }
+});
+
+/* Add desktop handlers to existing cells */
+function addDesktopCellHandlers(td) {
+  td.addEventListener("dragover", e => e.preventDefault());
+  td.addEventListener("drop", e => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "none";
+    if (!draggedItem) return;
+    if (dragSource === "uploadZone") {
+      // clone into cell
+      const clone = createDraggableImage(draggedItem.src);
+      td.appendChild(clone);
+    } else if (dragSource === "grid") {
+      // move inside/into cell with reordering freedom
+      const after = getDragAfterElement(td, e.clientX);
+      if (!after) td.appendChild(draggedItem);
+      else td.insertBefore(draggedItem, after);
+    }
+  });
+}
+
+/* initialize for current cells */
+document.querySelectorAll("#tierTable td").forEach(td => addDesktopCellHandlers(td));
+
+/* helper to get insertion element based on X (desktop) */
+function getDragAfterElement(container, x) {
+  const draggableElements = [...container.querySelectorAll("img.table-img:not(.dragging)")];
+  let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+  for (const child of draggableElements) {
+    const box = child.getBoundingClientRect();
+    const offset = x - box.left - box.width / 2;
+    if (offset < 0 && offset > closest.offset) {
+      closest = { offset, element: child };
+    }
   }
-  function dropDeny(e) {
-    e.preventDefault();
+  return closest.element;
+}
+
+/* === TOUCH / MOBILE DRAG & DROP ===
+   Approach:
+   - On touchstart we create a floating ghost element that follows the finger.
+   - We detect origin (uploadZone or grid cell) and set a flag
+   - On touchend we determine drop zone by testing droppable rects
+   - If source was uploadZone -> clone into cell; if source was grid -> move original element
+   - Allow reordering inside cell by checking child centers horizontally
+   - This is implemented separately from desktop drag so we don't break PC behavior.
+*/
+
+let touchState = null; // { originImg, isFromUpload, originParent, ghost, startX, startY }
+
+const droppableZones = [uploadZone, trashZone];
+function refreshDroppablesList() {
+  // Add current table cells
+  document.querySelectorAll("#tierTable tbody td").forEach(td => {
+    if (!droppableZones.includes(td)) droppableZones.push(td);
+  });
+}
+refreshDroppablesList();
+
+function addTouchHandlers(img) {
+  img.addEventListener("touchstart", onTouchStart, { passive: false });
+  img.addEventListener("touchmove", onTouchMove, { passive: false });
+  img.addEventListener("touchend", onTouchEnd);
+  img.addEventListener("touchcancel", onTouchEnd);
+}
+
+function onTouchStart(e) {
+  // Only single touch
+  if (e.touches.length > 1) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const img = e.currentTarget;
+
+  // record origin
+  const originParent = img.parentElement;
+  const isFromUpload = (originParent === uploadZone);
+
+  // create ghost (floating image) to follow finger
+  const ghost = img.cloneNode(true);
+  ghost.classList.add("touch-ghost");
+  ghost.style.width = img.getBoundingClientRect().width + "px";
+  ghost.style.height = img.getBoundingClientRect().height + "px";
+  document.body.appendChild(ghost);
+
+  // for upload-origin: we keep original in place until drop (clone on drop)
+  // for grid-origin: we'll move the actual img on drop (so temporarily float the actual img)
+  if (!isFromUpload) {
+    // move the actual element visually to fixed so it follows finger (but we will re-parent on drop)
+    img.style.position = "fixed";
+    img.style.zIndex = 99998;
+    img.style.left = (t.clientX - img.getBoundingClientRect().width / 2) + "px";
+    img.style.top = (t.clientY - img.getBoundingClientRect().height / 2) + "px";
+    img.classList.add("dragging");
+  } else {
+    // mark upload-origin original with a small class (no move)
+    img.classList.add("touch-source-upload");
   }
 
-  // Autoriser drop sur uploadZone, trashZone, td (cases du tableau)
-  function dragOverAllow(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+  touchState = {
+    originImg: img,
+    originParent,
+    isFromUpload,
+    ghost,
+    startX: t.clientX,
+    startY: t.clientY
+  };
+
+  moveGhostTo(t.clientX, t.clientY);
+}
+
+function moveGhostTo(clientX, clientY) {
+  if (!touchState) return;
+  const g = touchState.ghost;
+  if (!g) return;
+  g.style.left = clientX + "px";
+  g.style.top = clientY + "px";
+}
+
+function onTouchMove(e) {
+  if (!touchState) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  moveGhostTo(t.clientX, t.clientY);
+  // if origin was grid and original was set to fixed, move it also (keeps parity with ghost)
+  if (!touchState.isFromUpload && touchState.originImg) {
+    const img = touchState.originImg;
+    img.style.left = (t.clientX - img.getBoundingClientRect().width / 2) + "px";
+    img.style.top = (t.clientY - img.getBoundingClientRect().height / 2) + "px";
+  }
+}
+
+function onTouchEnd(e) {
+  if (!touchState) return;
+  // determine drop zone by using changedTouches
+  const touch = (e.changedTouches && e.changedTouches[0]) || null;
+  let dropX = touch ? touch.clientX : touchState.startX;
+  let dropY = touch ? touch.clientY : touchState.startY;
+
+  // find which drop zone contains (dropX, dropY)
+  let targetZone = null;
+  for (const zone of droppableZones) {
+    const rect = zone.getBoundingClientRect();
+    if (dropX >= rect.left && dropX <= rect.right && dropY >= rect.top && dropY <= rect.bottom) {
+      targetZone = zone;
+      break;
+    }
   }
 
-  // Fonction drop image autorisé (uploadZone, tbody td)
-  function dropImageAllow(e) {
-    e.preventDefault();
-    const src = e.dataTransfer.getData("text/plain");
-    const draggedId = e.dataTransfer.getData("text/id");
-    if (!src) return;
-
-    // Si on a l'ID de l'image déplacée, on déplace l'image existante
-    if (draggedId) {
-      const draggedImg = document.querySelector(`img[data-id="${draggedId}"]`);
-      if (draggedImg) {
-        // Si drop sur uploadZone ou td, on déplace l'image existante
-        e.target.appendChild(draggedImg);
-      }
-      return;
-    }
-
-    // Sinon (ex: drag depuis fichier), créer une nouvelle image
-    const img = document.createElement("img");
-    img.src = src;
-    img.draggable = true;
-    img.dataset.id = generateID();
-    img.addEventListener("dragstart", dragStart);
-    e.target.appendChild(img);
+  // Clean up ghost
+  if (touchState.ghost && touchState.ghost.parentElement) {
+    touchState.ghost.parentElement.removeChild(touchState.ghost);
   }
 
-  // Interdire drop sur th (tiers et classes)
-  document.querySelectorAll("th").forEach((th) => {
-    th.addEventListener("dragover", dragOverDeny);
-    th.addEventListener("drop", dropDeny);
-  });
+  const originImg = touchState.originImg;
+  const isFromUpload = touchState.isFromUpload;
+  const originParent = touchState.originParent;
 
-  // Zones autorisant le drop (uploadZone, trashZone, tbody td)
-  uploadZone.addEventListener("dragover", dragOverAllow);
-  uploadZone.addEventListener("drop", dropImageAllow);
-
-  trashZone.addEventListener("dragover", dragOverAllow);
-  trashZone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData("text/id");
-    if (!draggedId) return;
-    const imgToRemove = document.querySelector(`img[data-id="${draggedId}"]`);
-    if (imgToRemove) imgToRemove.remove();
-  });
-
-  // Ajout drop sur toutes les cases td
-  document.querySelectorAll("tbody td").forEach((td) => {
-    td.addEventListener("dragover", dragOverAllow);
-    td.addEventListener("drop", dropImageAllow);
-  });
-
-  // Boutons gestion tiers/classes
-
-  // Ajouter un tier (ligne)
-  document.getElementById("addTier").addEventListener("click", () => {
-    const nbClasses = table.rows[0].cells.length - 1; // -1 pour la colonne tiers
-    const tr = document.createElement("tr");
-
-    // Colonne tiers avec titre editable et select couleur
-    const th = document.createElement("th");
-    th.classList.add("tier-header");
-    th.contentEditable = "true";
-    th.style.backgroundColor = "#FFD700";
-    th.textContent = "Nouveau Tier";
-
-    // Select couleurs principales/secondaires
-    const select = document.createElement("select");
-    select.classList.add("color-picker");
-    const colors = [
-      { name: "Jaune", val: "#FFD700" },
-      { name: "Argent", val: "#C0C0C0" },
-      { name: "Bronze", val: "#CD7F32" },
-      { name: "Tomate", val: "#FF6347" },
-      { name: "Bleu clair", val: "#87CEFA" },
-      { name: "Vert clair", val: "#90EE90" },
-      { name: "Gris clair", val: "#D3D3D3" },
-    ];
-    colors.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.val;
-      opt.textContent = c.name;
-      if (c.val === "#FFD700") opt.selected = true;
-      select.appendChild(opt);
-    });
-    select.title = "Changer couleur tier";
-    select.addEventListener("change", (e) => {
-      th.style.backgroundColor = e.target.value;
-    });
-    th.appendChild(select);
-    tr.appendChild(th);
-
-    // Colonnes classes vides
-    for (let i = 0; i < nbClasses; i++) {
-      const td = document.createElement("td");
-      tr.appendChild(td);
-      // Autoriser drop sur les nouvelles td
-      td.addEventListener("dragover", dragOverAllow);
-      td.addEventListener("drop", dropImageAllow);
-    }
-    table.appendChild(tr);
-  });
-
-  // Retirer un tier (dernière ligne)
-  document.getElementById("removeTier").addEventListener("click", () => {
-    if (table.rows.length > 1) {
-      table.deleteRow(table.rows.length - 1);
-    }
-  });
-
-  // Ajouter une classe (colonne)
-  document.getElementById("addClass").addEventListener("click", () => {
-    const theadRow = document.querySelector("#tierTable thead tr");
-    const th = document.createElement("th");
-    th.classList.add("class-header");
-    th.contentEditable = "true";
-    th.textContent = "Nouvelle Classe";
-    theadRow.appendChild(th);
-
-    // Ajouter une cellule td vide dans chaque ligne du tbody
-    for (let i = 0; i < table.rows.length; i++) {
-      const td = document.createElement("td");
-      table.rows[i].appendChild(td);
-      td.addEventListener("dragover", dragOverAllow);
-      td.addEventListener("drop", dropImageAllow);
-    }
-  });
-
-  // Retirer une classe (dernière colonne)
-  document.getElementById("removeClass").addEventListener("click", () => {
-    const theadRow = document.querySelector("#tierTable thead tr");
-    if (theadRow.cells.length > 2) {
-      theadRow.deleteCell(theadRow.cells.length - 1);
-      for (let i = 0; i < table.rows.length; i++) {
-        table.rows[i].deleteCell(table.rows[i].cells.length - 1);
-      }
-    }
-  });
-
-  // Modifier couleur tiers existants avec select déjà présent
-  function initColorPickers() {
-    document.querySelectorAll("th.tier-header").forEach(th => {
-      const select = th.querySelector("select.color-picker");
-      if (select) {
-        select.addEventListener("change", (e) => {
-          th.style.backgroundColor = e.target.value;
-        });
-      }
-    });
-  }
-  initColorPickers();
-
-  // Mode sombre / clair
-  document.getElementById("toggleTheme").addEventListener("click", () => {
-    document.body.classList.toggle("dark-mode");
-  });
-
-  // Téléchargement image
-  document.getElementById("download").addEventListener("click", () => {
-    html2canvas(table).then(canvas => {
-      const link = document.createElement("a");
-      link.download = "tierlist.png";
-      link.href = canvas.toDataURL();
-      link.click();
-    });
-  });
-
-  // Reset (vider upload, poubelle, remettre table à 2 tiers x 2 classes)
-  document.getElementById("reset").addEventListener("click", () => {
-    uploadZone.innerHTML = "";
-    trashZone.innerHTML = "";
-    // Reset table
-    while (table.firstChild) table.removeChild(table.firstChild);
-
-    // Remplir table par défaut (2 tiers, 2 classes)
-    // entête classes
-    const theadRow = document.querySelector("#tierTable thead tr");
-    while (theadRow.cells.length > 1) theadRow.deleteCell(1);
-    const class1 = document.createElement("th");
-    class1.classList.add("class-header");
-    class1.contentEditable = "true";
-    class1.textContent = "Classe 1";
-    theadRow.appendChild(class1);
-    const class2 = document.createElement("th");
-    class2.classList.add("class-header");
-    class2.contentEditable = "true";
-    class2.textContent = "Classe 2";
-    theadRow.appendChild(class2);
-
-    // tiers S et A
-    function createTierRow(name, color) {
-      const tr = document.createElement("tr");
-      const th = document.createElement("th");
-      th.classList.add("tier-header");
-      th.contentEditable = "true";
-      th.style.backgroundColor = color;
-      th.textContent = name;
-      const select = document.createElement("select");
-      select.classList.add("color-picker");
-      const colors = [
-        { name: "Jaune", val: "#FFD700" },
-        { name: "Argent", val: "#C0C0C0" },
-        { name: "Bronze", val: "#CD7F32" },
-        { name: "Tomate", val: "#FF6347" },
-        { name: "Bleu clair", val: "#87CEFA" },
-        { name: "Vert clair", val: "#90EE90" },
-        { name: "Gris clair", val: "#D3D3D3" },
-      ];
-      colors.forEach(c => {
-        const opt = document.createElement("option");
-        opt.value = c.val;
-        opt.textContent = c.name;
-        if (c.val === color) opt.selected = true;
-        select.appendChild(opt);
-      });
-      select.title = "Changer couleur tier";
-      select.addEventListener("change", (e) => {
-        th.style.backgroundColor = e.target.value;
-      });
-      th.appendChild(select);
-      tr.appendChild(th);
-      for(let i=0; i<2; i++) {
-        const td = document.createElement("td");
-        td.addEventListener("dragover", dragOverAllow);
-        td.addEventListener("drop", dropImageAllow);
-        tr.appendChild(td);
-      }
-      table.appendChild(tr);
-    }
-    createTierRow("S", "#FFD700");
-    createTierRow("A", "#C0C0C0");
-  });
-
-  // Activer musique
-  musicBtn.addEventListener("click", () => {
-    if (music.paused) {
-      music.play();
-      musicBtn.textContent = "Pause la musique";
+  // If dropped to trash -> delete (works for both upload and grid)
+  if (targetZone === trashZone) {
+    if (isFromUpload) {
+      // remove original from upload zone
+      if (originImg && originImg.parentElement === uploadZone) originImg.remove();
     } else {
-      music.pause();
-      musicBtn.textContent = "Activer la musique";
+      if (originImg && originImg.parentElement) originImg.remove();
     }
-  });
-</script>
+    cleanupAfterTouch(originImg);
+    touchState = null;
+    return;
+  }
 
+  // If dropped into upload zone
+  if (targetZone === uploadZone) {
+    if (isFromUpload) {
+      // reorder into upload zone: insert at nearest position
+      const rect = uploadZone.getBoundingClientRect();
+      const x = dropX - rect.left;
+      let inserted = false;
+      for (const child of [...uploadZone.children]) {
+        const childRect = child.getBoundingClientRect();
+        if (x < childRect.left - rect.left + childRect.width / 2) {
+          uploadZone.insertBefore(originImg, child);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) uploadZone.appendChild(originImg);
+    } else {
+      // moving from grid to upload zone: append
+      uploadZone.appendChild(originImg);
+      originImg.style.position = "";
+      originImg.style.zIndex = "";
+    }
+    cleanupAfterTouch(originImg);
+    touchState = null;
+    return;
+  }
+
+  // If dropped into a table cell (one of droppableZones beyond the first two)
+  if (targetZone && targetZone.tagName === "TD") {
+    if (isFromUpload) {
+      // clone original into cell
+      const clone = createDraggableImage(originImg.src);
+      // insert at position based on x
+      const rect = targetZone.getBoundingClientRect();
+      const x = dropX - rect.left;
+      let inserted = false;
+      for (const child of [...targetZone.children]) {
+        const childRect = child.getBoundingClientRect();
+        if (x < (childRect.left - rect.left) + childRect.width / 2) {
+          targetZone.insertBefore(clone, child);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) targetZone.appendChild(clone);
+    } else {
+      // moving existing image element into target cell; preserve reordering freedom
+      const rect = targetZone.getBoundingClientRect();
+      const x = dropX - rect.left;
+      let inserted = false;
+      // before inserting, reset position style (it was fixed during touch)
+      originImg.style.position = "";
+      originImg.style.zIndex = "";
+      originImg.classList.remove("dragging");
+      for (const child of [...targetZone.children]) {
+        const childRect = child.getBoundingClientRect();
+        if (x < (childRect.left - rect.left) + childRect.width / 2) {
+          targetZone.insertBefore(originImg, child);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) targetZone.appendChild(originImg);
+    }
+    cleanupAfterTouch(originImg);
+    touchState = null;
+    return;
+  }
+
+  // If not dropped into any zone -> return to origin
+  if (originParent) {
+    if (isFromUpload) {
+      // origin was upload: keep original in upload zone
+      // if we changed nothing, it's already there
+    } else {
+      // put back in originParent
+      originParent.appendChild(originImg);
+      originImg.style.position = "";
+      originImg.style.zIndex = "";
+      originImg.classList.remove("dragging");
+    }
+  }
+
+  cleanupAfterTouch(originImg);
+  touchState = null;
+}
+
+function cleanupAfterTouch(img){
+  if (!img) return;
+  img.classList.remove("touch-source-upload");
+  img.classList.remove("dragging");
+  img.style.position = "";
+  img.style.left = "";
+  img.style.top = "";
+  img.style.zIndex = "";
+}
+
+/* Add touch handlers to existing images in upload zone and table */
+function initExistingImagesForTouch() {
+  document.querySelectorAll("img.table-img").forEach(img => {
+    addTouchHandlers(img);
+  });
+}
+initExistingImagesForTouch();
+
+/* When new td/cells or images are added, we must:
+   - add touch handlers to new images
+   - add new td to droppableZones list and bind desktop handlers
+*/
+function makeCellDroppable(td) {
+  // desktop handlers (preserve PC behavior)
+  addDesktopCellHandlers(td);
+  // ensure td is in droppableZones for touch
+  if (!droppableZones.includes(td)) droppableZones.push(td);
+}
+
+/* === ADD / REMOVE TIERS and CLASSES (preserve behavior) === */
+document.getElementById("addTier").addEventListener("click", () => {
+  const tbodyEl = document.querySelector("#tierTable tbody");
+  const tr = document.createElement("tr");
+
+  const th = document.createElement("th");
+  th.className = "tier-header";
+  th.contentEditable = "true";
+  th.style.position = "relative";
+  th.textContent = "Nouveau Tier";
+
+  const sel = document.createElement("select");
+  sel.className = "color-picker";
+  createColorOptions(sel, "#808080");
+  sel.addEventListener("change", e => { th.style.backgroundColor = e.target.value; });
+  th.appendChild(sel);
+
+  tr.appendChild(th);
+
+  const classCount = document.querySelectorAll("#tierTable thead th.class-header").length;
+  for (let i = 0; i < classCount; i++) {
+    const td = document.createElement("td");
+    tr.appendChild(td);
+    makeCellDroppable(td);
+  }
+  tbodyEl.appendChild(tr);
+  initColorPickers();
+});
+
+document.getElementById("removeTier").addEventListener("click", () => {
+  const tbodyEl = document.querySelector("#tierTable tbody");
+  if (tbodyEl.rows.length > 1) tbodyEl.deleteRow(tbodyEl.rows.length - 1);
+});
+
+document.getElementById("addClass").addEventListener("click", () => {
+  const thead = document.querySelector("#tierTable thead tr");
+  const th = document.createElement("th");
+  th.className = "class-header";
+  th.contentEditable = "true";
+  th.textContent = "Classe " + thead.children.length;
+  thead.appendChild(th);
+
+  document.querySelectorAll("#tierTable tbody tr").forEach(tr => {
+    const td = document.createElement("td");
+    tr.appendChild(td);
+    makeCellDroppable(td);
+  });
+  refreshDroppablesList();
+});
+
+document.getElementById("removeClass").addEventListener("click", () => {
+  const thead = document.querySelector("#tierTable thead tr");
+  if (thead.children.length <= 2) return;
+  thead.removeChild(thead.lastElementChild);
+  document.querySelectorAll("#tierTable tbody tr").forEach(tr => {
+    tr.removeChild(tr.lastElementChild);
+  });
+});
+
+/* === THEME TOGGLE === */
+document.getElementById("toggleTheme").addEventListener("click", () => {
+  if (body.classList.contains("dark-mode")) {
+    body.classList.remove("dark-mode");
+    body.classList.add("light-mode");
+  } else {
+    body.classList.remove("light-mode");
+    body.classList.add("dark-mode");
+  }
+});
+
+/* === DOWNLOAD (mobile-friendly) === */
+document.getElementById("download").addEventListener("click", async () => {
+  // hide upload & trash to get a clean tier screenshot (like before)
+  const oldUploadDisplay = uploadZone.style.display;
+  const oldTrashDisplay = trashZone.style.display;
+  uploadZone.style.display = "none";
+  trashZone.style.display = "none";
+
+  // temporarily disable contenteditable to avoid visual artifacts
+  const editableEls = [...document.querySelectorAll("[contenteditable]")];
+  editableEls.forEach(el => el.setAttribute("data-old-contenteditable", "true") && el.removeAttribute("contenteditable"));
+
+  try {
+    // Use html2canvas on the table container (not whole page) to get a reasonable image
+    const elToCapture = document.getElementById("tierTable");
+    const canvas = await html2canvas(elToCapture, { useCORS: true, allowTaint: true, logging: false, scrollY: -window.scrollY });
+
+    // restore UI
+    uploadZone.style.display = oldUploadDisplay;
+    trashZone.style.display = oldTrashDisplay;
+    editableEls.forEach(el => el.setAttribute("contenteditable", "true") && el.removeAttribute("data-old-contenteditable"));
+
+    // Try to download in a mobile-friendly way:
+    // 1) Try to use toBlob + link download (works on many mobile browsers)
+    // 2) If that is blocked, open image in new tab so user can long-press to save
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        // fallback: open dataURL
+        const dataUrl = canvas.toDataURL("image/png");
+        window.open(dataUrl, "_blank");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (document.getElementById("title").textContent.trim() || "tier-list") + ".png";
+
+      // Some mobile browsers ignore download attribute; attempt click then fallback to opening
+      let clicked = false;
+      try {
+        a.click();
+        clicked = true;
+      } catch (err) {
+        clicked = false;
+      }
+
+      // If not clicked or if on iOS/Safari where download is unsupported, open in new tab
+      setTimeout(() => {
+        if (!clicked) window.open(url, "_blank");
+        // release object URL after short delay
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }, 200);
+    }, "image/png");
+  } catch (err) {
+    // restore if error
+    uploadZone.style.display = oldUploadDisplay;
+    trashZone.style.display = oldTrashDisplay;
+    editableEls.forEach(el => el.setAttribute("contenteditable", "true") && el.removeAttribute("data-old-contenteditable"));
+    alert("Erreur lors de la génération de l'image : " + err.message);
+  }
+});
+
+/* === RESET ===
+   Keep exactly the current behavior (reload the page): preserves all initial state.
+*/
+document.getElementById("reset").addEventListener("click", () => {
+  if (confirm("Voulez-vous vraiment réinitialiser ?")) location.reload();
+});
+
+/* === MUSIC TOGGLE === */
+musicBtn.addEventListener("click", () => {
+  if (music.paused) {
+    music.play();
+    musicBtn.textContent = "Pause la musique";
+  } else {
+    music.pause();
+    musicBtn.textContent = "Activer la musique";
+  }
+});
+
+/* === INITIALIZATION helpers for dynamic content === */
+function observeMutationsForNewImages() {
+  // Watch for newly added img.table-img to attach touch handlers automatically
+  const observer = new MutationObserver(muts => {
+    muts.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (!node) return;
+        if (node.nodeType !== 1) return;
+        if (node.tagName === "IMG" && node.classList.contains("table-img")) {
+          // ensure desktop and touch handlers exist
+          node.removeEventListener("dragstart", dragStart);
+          node.removeEventListener("dragend", dragEnd);
+          node.addEventListener("dragstart", dragStart);
+          node.addEventListener("dragend", dragEnd);
+          addTouchHandlers(node);
+        } else if (node.tagName === "TD") {
+          addDesktopCellHandlers(node);
+          refreshDroppablesList();
+        } else {
+          // check inside for images or tds
+          node.querySelectorAll && node.querySelectorAll("img.table-img").forEach(img => {
+            img.removeEventListener("dragstart", dragStart);
+            img.removeEventListener("dragend", dragEnd);
+            img.addEventListener("dragstart", dragStart);
+            img.addEventListener("dragend", dragEnd);
+            addTouchHandlers(img);
+          });
+          node.querySelectorAll && node.querySelectorAll("td").forEach(td => {
+            addDesktopCellHandlers(td);
+            refreshDroppablesList();
+          });
+        }
+      });
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+observeMutationsForNewImages();
+
+/* Re-run droppables list in case initial cells were added after load */
+refreshDroppablesList();
+
+/* Make sure upload zone existing images get handlers */
+uploadZone.querySelectorAll("img").forEach(img => {
+  img.removeEventListener("dragstart", dragStart);
+  img.removeEventListener("dragend", dragEnd);
+  img.addEventListener("dragstart", dragStart);
+  img.addEventListener("dragend", dragEnd);
+  addTouchHandlers(img);
+});
+
+/* Ensure initial table images (if any) get handlers */
+document.querySelectorAll("img.table-img").forEach(img => {
+  img.removeEventListener("dragstart", dragStart);
+  img.removeEventListener("dragend", dragEnd);
+  img.addEventListener("dragstart", dragStart);
+  img.addEventListener("dragend", dragEnd);
+  addTouchHandlers(img);
+});
+
+</script>
 </body>
 </html>
